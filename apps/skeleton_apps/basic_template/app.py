@@ -1,6 +1,6 @@
 import logging
 
-from h2o_wave import Q, main, app, expando_to_dict, handle_on, on
+from h2o_wave import Q, main, app, ui, handle_on, on
 
 import cards
 
@@ -15,11 +15,11 @@ async def serve(q: Q):
 
     try:
         # initialize app
-        if not q.app.app_initialized:
+        if not q.app.initialized:
             await initialize_app(q)
 
         # initialize client
-        if not q.client.client_initialized:
+        if not q.client.initialized:
             await initialize_client(q)
 
         # handle ons
@@ -31,7 +31,7 @@ async def serve(q: Q):
             await update_dummy(q)
 
     except Exception as error:
-        await handle_error(q, error=str(error))
+        await show_error(q, error=str(error))
 
 
 async def initialize_app(q: Q):
@@ -41,7 +41,7 @@ async def initialize_app(q: Q):
 
     logging.info('Initializing app')
 
-    q.app.app_initialized = True
+    q.app.initialized = True
 
 
 async def initialize_client(q: Q):
@@ -51,21 +51,51 @@ async def initialize_client(q: Q):
 
     logging.info('Initializing client')
 
-    q.client.theme_dark = True
+    q.page['meta'] = ui.meta_card(
+        box='',
+        title='WaveTon',
+        layouts=[
+            ui.layout(
+                breakpoint='xs',
+                zones=[
+                    ui.zone(name='header'),
+                    ui.zone(name='home'),
+                    ui.zone(name='error'),
+                    ui.zone(name='footer')
+                ]
+            )
+        ],
+        theme='h2o-dark'
+    )
+    q.page['header'] = ui.header_card(
+        box='header',
+        title='Basic Template',
+        subtitle='Building blocks to kickstart an app',
+        icon='BuildQueue',
+        icon_color='black'
+    )
+    q.page['home'] = ui.form_card(
+        box='home',
+        items=[
+            ui.text('This is a great starting point to build an app.')
+        ]
+    )
+    q.page['footer'] = ui.footer_card(
+        box='footer',
+        caption='Learn more about <a href="https://github.com/vopani/waveton" target="_blank"> WaveTon: 💯 Wave Applications</a>'
+    )
 
-    q.page['meta'] = cards.meta()
-    q.page['header'] = cards.header()
-    q.page['home'] = cards.home()
-    q.page['footer'] = cards.footer()
+    q.page['dummy'] = ui.form_card(
+        box='dummy',
+        items=[]
+    )
 
-    q.page['dummy'] = cards.dummy()
-
-    q.client.client_initialized = True
+    q.client.initialized = True
 
     await q.page.save()
 
 
-async def drop_cards(q: Q, card_names: list):
+def drop_cards(q: Q, card_names: list):
     """
     Drop cards from Wave page.
     """
@@ -76,22 +106,16 @@ async def drop_cards(q: Q, card_names: list):
         del q.page[card_name]
 
 
-async def handle_error(q: Q, error: str):
+async def show_error(q: Q, error: str):
     """
     Handle any app error.
     """
 
     logging.error(error)
 
-    await drop_cards(q, cards.DROPPABLE_CARDS)
+    drop_cards(q, ['home'])
 
-    q.page['error'] = cards.error(
-        q_app=expando_to_dict(q.app),
-        q_user=expando_to_dict(q.user),
-        q_client=expando_to_dict(q.client),
-        q_events=expando_to_dict(q.events),
-        q_args=expando_to_dict(q.args)
-    )
+    q.page['error'] = cards.create_error_report(q)
 
     await q.page.save()
 
@@ -105,27 +129,6 @@ async def restart(q: Q):
     logging.info('Restarting app')
 
     await initialize_client(q)
-
-
-@on('report')
-async def report(q: Q):
-    """
-    Report error details.
-    """
-
-    logging.info('Displaying error details')
-
-    q.page['error'].items[4].separator.visible = True
-    q.page['error'].items[5].text.visible = True
-    q.page['error'].items[6].text_l.visible = True
-    q.page['error'].items[7].text.visible = True
-    q.page['error'].items[8].text.visible = True
-    q.page['error'].items[9].text.visible = True
-    q.page['error'].items[10].text.visible = True
-    q.page['error'].items[11].text.visible = True
-    q.page['error'].items[12].text.visible = True
-
-    await q.page.save()
 
 
 async def update_dummy(q: Q):
